@@ -20,7 +20,7 @@ const currentDate = `${date}, ${month} ${day} ${year}`;
 
 const Weather = ({isDarkMode}) => {
 
-    const [inputValue, setInputValue] = useState('Addis Ababa');
+    const [inputValue, setInputValue] = useState('London');
     const [city, setCity] = useState('');
     const [weatherIcon, setWeatherIcon] = useState();
     const [temp, setTemp] = useState('');
@@ -31,60 +31,70 @@ const Weather = ({isDarkMode}) => {
     const [condition, setCondition] = useState('');
 
     useEffect(() => {
-        fetchWeatherData(new Event('load')); // Trigger on initial load
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    fetchWeatherData({ lat: position.coords.latitude, lon: position.coords.longitude });
+                },
+                () => {
+                    fetchWeatherData({ city: inputValue });
+                }
+            );
+        } else {
+            fetchWeatherData({ city: inputValue });
+        }
     }, []);
 
-    async function fetchWeatherData(e) {
-
-        e.preventDefault();
-        if (inputValue.trim() === '') {
+    async function fetchWeatherData({ city, lat, lon, event }) {
+        if (event) event.preventDefault();
+        let apiUrl = '';
+        if (lat && lon) {
+            apiUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}${apiKey}`;
+        } else if (city && city.trim() !== '') {
+            apiUrl = url + city + apiKey;
+        } else {
             setInputGroupClass('shake');
-            setTimeout(() => {
-                setInputGroupClass('');
-            }, 500);
-        }
-        else {
-            fetch(url + inputValue + apiKey)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.cod === '404') {
-                        setInputGroupClass('shake');
-                        setTimeout(() => {
-                            setInputGroupClass('');
-                        }, 500);
-                        setCity('City You Entered is Not Found');
-                    }
-                    else if (data.weather[0].main === 'Clouds') {
-                        setWeatherIcon(cloud);
-                        setCondition("Cloudy");
-                    } else if (data.weather[0].main === 'Clear') {
-                        setWeatherIcon(clear);
-                        setCondition("Clear");
-                    } else if (data.weather[0].main === 'Drizzle') {
-                        setWeatherIcon(drizzle);
-                        setCondition("Drizzle");
-                    } else if (data.weather[0].main === 'Mist') {
-                        setWeatherIcon(mist);
-                        setCondition("Misty");
-                    } else if (data.weather[0].main === 'Rain') {
-                        setWeatherIcon(rain);
-                        setCondition("Rainy");
-                    } else if (data.weather[0].main === 'Snow') {
-                        setWeatherIcon(snow);
-                        setCondition("Snowy");
-                    }
-
-                    setTemp(Math.round(data.main.temp) + "°C");
-                    setCity(data.name + " (" + data.sys.country + ")");
-                    setHumidity(data.main.humidity + "%");
-                    setSeaLevel(data.main.sea_level + "hpa");
-                    setWind(data.wind.speed + " Km/h");
-                    setInputValue('');
-                })
-                .catch(error => console.error('Error fetching weather data:', error), setInputValue(''));
+            setTimeout(() => setInputGroupClass(''), 500);
+            return;
         }
 
-    
+        fetch(apiUrl)
+            .then(response => response.json())
+            .then(data => {
+                if (data.cod === '404') {
+                    setInputGroupClass('shake');
+                    setTimeout(() => setInputGroupClass(''), 500);
+                    setCity('City Not Found');
+                    return;
+                }
+                else if (data.weather[0].main === 'Clouds') {
+                    setWeatherIcon(cloud);
+                    setCondition("Cloudy");
+                } else if (data.weather[0].main === 'Clear') {
+                    setWeatherIcon(clear);
+                    setCondition("Clear");
+                } else if (data.weather[0].main === 'Drizzle') {
+                    setWeatherIcon(drizzle);
+                    setCondition("Drizzle");
+                } else if (data.weather[0].main === 'Mist') {
+                    setWeatherIcon(mist);
+                    setCondition("Misty");
+                } else if (data.weather[0].main === 'Rain') {
+                    setWeatherIcon(rain);
+                    setCondition("Rainy");
+                } else if (data.weather[0].main === 'Snow') {
+                    setWeatherIcon(snow);
+                    setCondition("Snowy");
+                }
+
+                setTemp(Math.round(data.main.temp) + "°C");
+                setCity(data.name + " (" + data.sys.country + ")");
+                setHumidity(data.main.humidity + "%");
+                setSeaLevel(data.main.sea_level + "hpa");
+                setWind(data.wind.speed + " Km/h");
+                setInputValue('');
+            })
+            .catch(error => console.error('Error fetching weather data:', error), setInputValue(''));
     }
 
 
@@ -92,7 +102,7 @@ const Weather = ({isDarkMode}) => {
     <section className={`weather ${isDarkMode ? 'dark' : ''}`}>
         <div className='container'>
 
-            <form className={`search-container ${inputGroupClass}` } onSubmit={fetchWeatherData}>
+            <form className={`search-container ${inputGroupClass}` } onSubmit={e => fetchWeatherData({ city: inputValue, event: e })}>
                 <span><BiSearch className='icon'/></span>
                 <input type="text" name='search' value={inputValue} placeholder='Search location..' 
                 onChange={(e)=> setInputValue(e.target.value)}/>
